@@ -1,0 +1,15 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+.env
+venv/
+
+# Project files with secrets
+config.json
+seen_jobs.json
+
+# IDE
+.vscode/
+.idea/
+

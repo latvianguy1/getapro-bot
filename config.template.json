@@ -1,0 +1,10 @@
+{
+  "telegram_bot_token": "YOUR_BOT_TOKEN",
+  "telegram_chat_id": "YOUR_CHAT_ID",
+  "check_interval_minutes": 10,
+  "enabled_categories": [
+    "it-pakalpojumi",
+    "dizains-maksla-reklama"
+  ]
+}
+
