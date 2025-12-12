@@ -669,7 +669,8 @@ def main():
     if len(sys.argv) > 1 and sys.argv[1] == '--once':
         monitor.run_once()
     else:
-        interval = monitor.config.get('check_interval_minutes', 10)
+        config = monitor.config_manager.get_config()
+        interval = config.get('check_interval_minutes', 10)
         monitor.run_continuous(interval)
 
 
