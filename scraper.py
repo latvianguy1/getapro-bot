@@ -352,17 +352,23 @@ class TelegramBot:
                 self._cmd_remove(chat_id, args, config_manager)
             elif command == '/check':
                 self._cmd_check(chat_id)
+            elif command == '/latest':
+                self._cmd_latest(chat_id, config_manager)
+            elif command == '/interval':
+                self._cmd_interval(chat_id, args, config_manager)
     
     def _cmd_help(self, chat_id: str):
         """Show help message"""
         help_text = """🤖 <b>GetaPro Job Monitor</b>
 
 <b>Komandas:</b>
-/status - Pārbaudīt bota statusu
-/categories - Rādīt aktīvās kategorijas
-/list - Rādīt visas pieejamās kategorijas
-/add &lt;kategorija&gt; - Pievienot kategoriju
-/remove &lt;kategorija&gt; - Noņemt kategoriju
+/status - Bota statuss
+/categories - Aktīvās kategorijas
+/list - Visas pieejamās kategorijas
+/add [kategorija] - Pievienot kategoriju
+/remove [kategorija] - Noņemt kategoriju
+/latest - Rādīt 10 jaunākos darbus
+/interval [min] - Mainīt pārbaudes intervālu
 /check - Pārbaudīt jaunus darbus tagad
 /help - Rādīt šo palīdzību"""
         self.send_message(help_text, chat_id=chat_id)
@@ -465,6 +471,81 @@ class TelegramBot:
         self.send_message("🔍 Pārbaudu jaunus darbus...", chat_id=chat_id)
         # The actual check is triggered by setting a flag that main loop reads
         self._force_check = True
+    
+    def _cmd_latest(self, chat_id: str, config_manager):
+        """Show 10 latest jobs"""
+        self.send_message("🔍 Meklēju jaunākos darbus...", chat_id=chat_id)
+        
+        config = config_manager.get_config()
+        categories = config.get('enabled_categories', [])
+        
+        if not categories:
+            self.send_message("❌ Nav aktīvu kategoriju!\n\nIzmanto /add lai pievienotu.", chat_id=chat_id)
+            return
+        
+        scraper = GetaProScraper()
+        all_jobs = []
+        
+        # Scrape from enabled categories (limit to avoid too many messages)
+        for cat in categories[:3]:  # Max 3 categories
+            try:
+                jobs = scraper.scrape_jobs(cat)
+                all_jobs.extend(jobs[:5])  # Max 5 per category
+                time.sleep(0.5)  # Small delay
+            except Exception as e:
+                logger.error(f"Error scraping {cat}: {e}")
+        
+        if not all_jobs:
+            self.send_message("❌ Nav atrasti darbi", chat_id=chat_id)
+            return
+        
+        # Send first 10 jobs
+        for job in all_jobs[:10]:
+            msg = f"📋 <b>{job['title']}</b>\n"
+            msg += f"📁 {job['category']}\n"
+            if job.get('subcategory'):
+                msg += f"📂 {job['subcategory']}\n"
+            msg += f"💰 {job.get('price', 'Nav norādīts')}\n"
+            msg += f"📍 {job.get('location', 'Nav norādīts')}\n"
+            msg += f"⏰ {job.get('time_posted', '')}\n"
+            if job.get('description'):
+                desc = job['description'][:150]
+                msg += f"\n📝 {desc}{'...' if len(job['description']) > 150 else ''}\n"
+            msg += f"\n🔗 <a href=\"{job.get('url', 'https://getapro.lv/job')}\">Skatīt pasūtījumu</a>"
+            self.send_message(msg, chat_id=chat_id)
+            time.sleep(0.3)  # Small delay between messages
+    
+    def _cmd_interval(self, chat_id: str, minutes: str, config_manager):
+        """Change check interval"""
+        if not minutes.strip():
+            # Show current interval
+            config = config_manager.get_config()
+            current = config.get('check_interval_minutes', 10)
+            self.send_message(
+                f"⏰ Pašreizējais intervāls: <b>{current} min</b>\n\n"
+                f"Lai mainītu: /interval 5\n"
+                f"(Min: 1, Max: 60 minūtes)",
+                chat_id=chat_id
+            )
+            return
+        
+        try:
+            mins = int(minutes.strip())
+            if mins < 1 or mins > 60:
+                self.send_message("❌ Intervālam jābūt no 1 līdz 60 minūtēm", chat_id=chat_id)
+                return
+            
+            config = config_manager.get_config()
+            config['check_interval_minutes'] = mins
+            config_manager.save_config(config)
+            
+            self.send_message(
+                f"✅ Intervāls nomainīts uz <b>{mins} min</b>\n\n"
+                f"⚠️ Restartē botu lai izmaiņas stātos spēkā",
+                chat_id=chat_id
+            )
+        except ValueError:
+            self.send_message("❌ Norādi minūtes!\n\nPiemērs: /interval 5", chat_id=chat_id)
     
     def should_force_check(self) -> bool:
         """Check if user requested immediate check"""
